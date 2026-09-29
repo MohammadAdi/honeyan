@@ -1,0 +1,6 @@
+{
+  "name": "Honey-an — Property Marketing & Lead Conversion Platform",
+  "description": "Enterprise property marketing CRM and lead conversion system for listing acquisition, content generation, buyer qualification, site visits, and commission tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

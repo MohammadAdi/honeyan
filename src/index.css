@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --color-primary: #3C50E0;
+    --color-primary-hover: #2e40c7;
+    --color-boxdark: #24303F;
+    --color-strokedark: #2E3A47;
+    --color-stroke: #E2E8F0;
+    --color-whiten: #F1F5F9;
+  }
+
+  * {
+    border-color: #E2E8F0;
+  }
+
+  .dark * {
+    border-color: #2E3A47;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #F1F5F9;
+    color: #64748B;
+  }
+
+  .dark body {
+    background-color: #1A222C;
+    color: #AEB7C0;
+  }
+}
+
+/* Custom TailAdmin scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
