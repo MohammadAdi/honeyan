@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../auth/AuthContext';
 import { 
   Menu, 
   Search, 
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   setSearchQuery
 }) => {
+  const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -139,14 +141,14 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-3 text-left pl-2"
             >
               <div className="h-9 w-9 rounded-full bg-[#3C50E0] text-white flex items-center justify-center font-bold text-sm shadow-xs ring-2 ring-[#E2E8F0] dark:ring-[#2E3A47]">
-                AD
+                {user?.displayName.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'HA'}
               </div>
               <div className="hidden text-right lg:block">
                 <span className="block text-xs font-bold text-[#1C2434] dark:text-white leading-tight">
-                  Adhi Development
+                  {user?.displayName}
                 </span>
                 <span className="block text-[11px] text-[#64748B] dark:text-[#8A99AD]">
-                  Marketing Director
+                  {user?.roles.join(', ')}
                 </span>
               </div>
               <ChevronDown className="hidden sm:block w-4 h-4 text-[#64748B] dark:text-[#8A99AD]" />
@@ -158,8 +160,8 @@ export const Header: React.FC<HeaderProps> = ({
                 onMouseLeave={() => setDropdownOpen(false)}
               >
                 <div className="px-3 py-2 border-b border-[#E2E8F0] dark:border-[#2E3A47]">
-                  <p className="text-xs font-semibold text-[#1C2434] dark:text-white">Adhi Development</p>
-                  <p className="text-[11px] text-[#64748B] dark:text-[#8A99AD] truncate">adhi.development@gmail.com</p>
+                  <p className="text-xs font-semibold text-[#1C2434] dark:text-white">{user?.displayName}</p>
+                  <p className="text-[11px] text-[#64748B] dark:text-[#8A99AD] truncate">{user?.email}</p>
                 </div>
                 <div className="py-1 text-xs text-[#1C2434] dark:text-[#AEB7C0]">
                   <button 
@@ -178,11 +180,11 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                   <div className="my-1 border-t border-[#E2E8F0] dark:border-[#2E3A47]"></div>
                   <button 
-                    onClick={() => { setDropdownOpen(false); }}
+                    onClick={() => { setDropdownOpen(false); void logout(); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-rose-500 rounded hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Switch Profile</span>
+                    <span>Sign out</span>
                   </button>
                 </div>
               </div>

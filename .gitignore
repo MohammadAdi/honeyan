@@ -2,6 +2,12 @@ node_modules/
 build/
 dist/
 coverage/
+bin/
+obj/
+.vs/
+.idea/
+.vscode/
+TestResults/
 .DS_Store
 *.log
 .env*

@@ -1,0 +1,6 @@
+@HoneyAn.Api_HostAddress = http://localhost:5151
+
+GET {{HoneyAn.Api_HostAddress}}/api/v1/health
+Accept: application/json
+
+###
