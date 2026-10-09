@@ -3,8 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
-using HoneyAn.Api.Models;
-using HoneyAn.Application.Identity;
+using HoneyAn.Api.Contracts.Auth.Responses;
+using HoneyAn.Api.Contracts.Users.Responses;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -41,7 +41,7 @@ public sealed class AuthenticationEndpointsTests : IClassFixture<HoneyAnApiFacto
             initialPassword = "Test-Sales-Password-123!"
         });
         Assert.Equal(HttpStatusCode.Created, createSales.StatusCode);
-        var sales = await createSales.Content.ReadFromJsonAsync<UserListItemDto>();
+        var sales = await createSales.Content.ReadFromJsonAsync<UserResponse>();
         Assert.NotNull(sales);
 
         using var salesClient = CreateClient();

@@ -9,6 +9,8 @@ Create a secure, runnable backoffice foundation in the existing monorepo. **Prop
 - Create `backend/HoneyAn.sln` with Api, Application, Domain, Infrastructure, IOC and UnitTests/IntegrationTests.
 - Follow dependency direction in `docs/architecture/backend.md`.
 - Configure DI, typed settings, development OpenAPI, ProblemDetails, logging, CORS allowlist, health endpoint.
+- Use controller-based API only (including HealthController); no Minimal API.
+- Configure MediatR, FluentValidation, `ValidationBehavior`, feature folders and CQRS conventions; register through IOC.
 - Acceptance: solution builds, API starts, `GET /api/v1/health` returns success; no secrets in repository.
 
 ### S1-02 — PostgreSQL and EF Core identity persistence
@@ -18,7 +20,8 @@ Create a secure, runnable backoffice foundation in the existing monorepo. **Prop
 - Acceptance: migrations create schema in a clean local PostgreSQL database; DB setup documented.
 
 ### S1-03 — Authentication lifecycle
-- Implement login, refresh (rotation), logout (revocation), current user.
+- Implement login, refresh (rotation), logout (revocation), current user as MediatR Commands/Queries with three files per use case: request, validator, handler.
+- Add HTTP DTOs under `Api/Contracts/Auth`, Application result models under `Application/Features/Auth/Models`, and explicit manual mapping under `Api/Mappings`.
 - Access token: short-lived JWT; refresh token: random, hashed in DB, HttpOnly/Secure cookie.
 - Revoke refresh sessions when user is disabled; handle expired/replayed tokens safely.
 - Provide explicit secure one-time Admin bootstrap using environment/secret-store supplied credentials (never hardcoded).
@@ -26,6 +29,7 @@ Create a secure, runnable backoffice foundation in the existing monorepo. **Prop
 
 ### S1-04 — Authorization and internal user management
 - Admin and Sales policies enforced server-side; protected endpoints default to authenticated.
+- Implement Users commands/queries with MediatR + FluentValidation, `IUserRepository` in Application and EF implementation in Infrastructure.
 - Implement Admin-only list/create/enable-disable users. No public signup.
 - Document initial role permissions; defer advanced record-level rules to their respective business modules.
 - Acceptance: unauthenticated requests return 401; authenticated users without permission receive 403; Sales cannot manage users.
@@ -38,7 +42,7 @@ Create a secure, runnable backoffice foundation in the existing monorepo. **Prop
 - Acceptance: Admin/Sales can login, refresh and logout in browser; unauthenticated user cannot enter protected views; session expiry handled.
 
 ### S1-06 — Automated tests and developer setup
-- Add unit and integration tests for token lifecycle, role restrictions, session revocation and error responses.
+- Add unit and integration tests for CQRS handlers, validators, mapping, repository behavior, token lifecycle, role restrictions, session revocation and error responses.
 - Add safe sample configuration, migration commands, local run instructions, and test commands.
 - Acceptance: build and tests pass in configured environment; record actual verification and any external dependency not available.
 

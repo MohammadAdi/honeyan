@@ -16,7 +16,16 @@ Build Honey-an MVP 1 as an **internal property marketing and lead conversion bac
 - Existing frontend is React 19, Vite, TypeScript, Tailwind CSS. **Do not assume Next.js or TailAdmin is installed.** Preserve current layout/components unless task explicitly authorizes change.
 - Backend target: ASP.NET Core Web API, EF Core, PostgreSQL; modular monolith with Domain, Application, Infrastructure, API and IOC projects.
 - Keep business rules, authorization, and validation authoritative on backend. Frontend is a client.
-- Prefer simple explicit services; do not add CQRS/MediatR, brokers, microservices, or new packages without demonstrated need.
+- REQUIRED: controller-based ASP.NET Core Web API with `[ApiController]`; do not use Minimal APIs or `MapGet`/`MapPost` for business endpoints.
+- REQUIRED: CQRS with MediatR and FluentValidation, feature-first organization, repository pattern, and manual mapping. No AutoMapper.
+- Every use case lives in `Application/Features/{Feature}/Commands/{UseCase}` or `Queries/{UseCase}` and has exactly three primary files: `{UseCase}Command|Query.cs`, `{UseCase}Command|QueryValidator.cs`, `{UseCase}Command|QueryHandler.cs`.
+- Register MediatR handlers and FluentValidation validators through IOC; use an Application `ValidationBehavior<TRequest,TResponse>` pipeline.
+- HTTP request/response contracts belong in `Api/Contracts/{Feature}/Requests|Responses` when HTTP-specific. Application command/query and use-case result models belong in Application; Domain entities never serve as API contracts.
+- Do not create a generic `Application/Contracts` bucket or duplicate command data in intermediary request DTOs. Put feature results in `Application/Features/{Feature}/Models`, shared application-only models in `Application/Common/Models`, and prefer explicit port parameters when a port is used by one use case.
+- Application abstractions must never accept or return API contracts. Controllers map API contracts to commands/queries and map Application results back to API response contracts.
+- HTTP contract-to-command and result-to-HTTP response mapping belongs in `Api/Mappings/{Feature}Mapper.cs`. Domain-to-application-result mapping may live in `Application/Features/{Feature}/Mappings`; mapping must be explicit and side-effect-free.
+- Repository interfaces live in `Application/Abstractions/Persistence`; EF Core implementations live in `Infrastructure/Persistence/Repositories`. Handlers depend on interfaces, not DbContext or EF types.
+- Avoid speculative generic repositories, unnecessary abstraction layers, brokers, and microservices.
 
 ## Authentication and authorization — Sprint 1 mandatory
 - All backoffice API endpoints require authentication by default; explicitly allow anonymous only for login, refresh and health where appropriate.

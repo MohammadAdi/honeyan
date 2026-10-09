@@ -68,3 +68,12 @@ POST   /api/v1/properties/{propertyId}/deactivate
 POST   /api/v1/properties/{propertyId}/mark-ready-to-market
 ```
 `mark-ready-to-market` must verify marketing permission and agreement server-side. Keep frontend TypeScript DTOs synchronized with implemented API contracts.
+
+## Implementation conventions (Foundation v3)
+- All business endpoints use versioned `ControllerBase` classes with `[ApiController]` and attribute routing; **no Minimal APIs**.
+- Controllers accept HTTP request DTOs from `HoneyAn.Api/Contracts/{Feature}/Requests`.
+- Controllers map DTOs to Application Commands/Queries using explicit manual mapping and dispatch via MediatR `ISender`.
+- FluentValidation validators execute in the Application MediatR pipeline; invalid inputs produce HTTP 400 with field errors.
+- Handler outputs are Application result models; API maps them to HTTP response DTOs as needed.
+- Use `CancellationToken` throughout. Return 401 for unauthenticated, 403 for unauthorized, and ProblemDetails for failures.
+- Never return Domain entities or persistence models directly from controllers.

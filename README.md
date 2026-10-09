@@ -22,3 +22,9 @@ Copy the **contents** of this folder into the root of the repository, alongside 
 
 ## Suggested workflow
 Commit documentation on a feature branch; review and merge; ask Codex to implement Sprint 1 in small, testable tasks. Verify existing AI marketing copy before any real-world publication.
+
+## Foundation v3 architectural decisions
+- Controller-based ASP.NET Core Web API (no Minimal APIs).
+- CQRS with MediatR, FluentValidation pipeline, and feature-first three-file use cases.
+- Repository Pattern; HTTP DTOs in API, use-case results in Application, explicit manual mapping.
+- See `docs/architecture/backend.md` and `AGENTS.md` before implementing Sprint 1.

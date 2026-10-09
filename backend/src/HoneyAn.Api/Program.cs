@@ -1,9 +1,6 @@
 using System.Threading.RateLimiting;
-using HoneyAn.Api.Endpoints;
 using HoneyAn.Api.Middleware;
-using HoneyAn.Api.Models;
-using HoneyAn.Application.Common.Models;
-using HoneyAn.Application.Identity;
+using HoneyAn.Application.Abstractions.Persistence;
 using HoneyAn.IOC;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddControllers();
 builder.Services.AddHoneyAnServices(builder.Configuration);
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -77,30 +75,20 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/api/v1/health", () =>
-        Results.Ok(ApiResponse<HealthResponse>.Ok(new HealthResponse("Healthy", DateTimeOffset.UtcNow))))
-    .AllowAnonymous()
-    .WithName("GetHealth")
-    .WithTags("System");
-app.MapAuthEndpoints();
-app.MapUserEndpoints();
+app.MapControllers();
 
-if (args.Contains("--bootstrap-admin", StringComparer.OrdinalIgnoreCase))
+if (args.Contains("--seed", StringComparer.OrdinalIgnoreCase))
 {
     await using var scope = app.Services.CreateAsyncScope();
-    var email = RequireEnvironmentVariable("HONEYAN_BOOTSTRAP_EMAIL");
-    var displayName = RequireEnvironmentVariable("HONEYAN_BOOTSTRAP_DISPLAY_NAME");
-    var password = RequireEnvironmentVariable("HONEYAN_BOOTSTRAP_PASSWORD");
-    await scope.ServiceProvider.GetRequiredService<IAdminBootstrapper>()
-        .BootstrapAsync(email, displayName, password, CancellationToken.None);
-    Console.WriteLine("Initial Admin account created.");
+    await scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>().SeedAsync(
+        Environment.GetEnvironmentVariable("HONEYAN_SEED_ADMIN_EMAIL"),
+        Environment.GetEnvironmentVariable("HONEYAN_SEED_ADMIN_DISPLAY_NAME"),
+        Environment.GetEnvironmentVariable("HONEYAN_SEED_ADMIN_PASSWORD"),
+        CancellationToken.None);
+    Console.WriteLine("Database seed completed.");
     return;
 }
 
 app.Run();
-
-static string RequireEnvironmentVariable(string name) =>
-    Environment.GetEnvironmentVariable(name)
-    ?? throw new InvalidOperationException($"Required environment variable '{name}' is missing.");
 
 public partial class Program;

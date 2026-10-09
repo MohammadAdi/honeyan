@@ -1,4 +1,4 @@
-using HoneyAn.Application.Identity;
+using HoneyAn.Application.Abstractions.Persistence;
 using HoneyAn.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -38,7 +38,8 @@ public sealed class HoneyAnApiFactory : WebApplicationFactory<Program>
     public async Task BootstrapAdminAsync()
     {
         using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<IAdminBootstrapper>()
-            .BootstrapAsync(AdminEmail, "Test Admin", AdminPassword, CancellationToken.None);
+        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+        await seeder.SeedAsync(AdminEmail, "Test Admin", AdminPassword, CancellationToken.None);
+        await seeder.SeedAsync(AdminEmail, "Test Admin", AdminPassword, CancellationToken.None);
     }
 }

@@ -2,7 +2,11 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using HoneyAn.Application.Common.Exceptions;
-using HoneyAn.Application.Identity;
+using HoneyAn.Application.Abstractions.Authentication;
+using HoneyAn.Application.Abstractions.Persistence;
+using HoneyAn.Application.Common.Models;
+using HoneyAn.Application.Features.Auth.Models;
+using HoneyAn.Application.Features.Users.Models;
 using HoneyAn.Domain.Identity;
 using HoneyAn.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -18,24 +22,33 @@ public sealed class IdentityService(
     RoleManager<IdentityRole<Guid>> roleManager,
     ApplicationDbContext dbContext,
     IOptions<JwtOptions> jwtOptions)
-    : IAuthenticationService, IUserManagementService, IUserStatusValidator, IAdminBootstrapper
+    : IAuthenticationService, IUserRepository, IUserStatusValidator
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
 
-    public async Task<AuthTokenDto> LoginAsync(LoginCommand command, CancellationToken cancellationToken)
+    public async Task<AuthResult> LoginAsync(
+        string email,
+        string password,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByEmailAsync(command.Email.Trim());
-        if (user is null || !user.IsActive || !await userManager.CheckPasswordAsync(user, command.Password))
+        var user = await userManager.FindByEmailAsync(email.Trim());
+        if (user is null || !user.IsActive || !await userManager.CheckPasswordAsync(user, password))
         {
             throw new AuthenticationException();
         }
 
-        return await IssueSessionAsync(user, Guid.NewGuid(), command.IpAddress, command.UserAgent, cancellationToken);
+        return await IssueSessionAsync(user, Guid.NewGuid(), ipAddress, userAgent, cancellationToken);
     }
 
-    public async Task<AuthTokenDto> RefreshAsync(RefreshCommand command, CancellationToken cancellationToken)
+    public async Task<AuthResult> RefreshAsync(
+        string refreshToken,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken)
     {
-        var hash = HashToken(command.RefreshToken);
+        var hash = HashToken(refreshToken);
         var session = await dbContext.RefreshSessions.SingleOrDefaultAsync(
             item => item.TokenHash == hash,
             cancellationToken);
@@ -75,8 +88,8 @@ public sealed class IdentityService(
             TokenHash = replacementHash,
             CreatedAt = now,
             ExpiresAt = now.AddDays(_jwt.RefreshTokenDays),
-            CreatedByIp = command.IpAddress,
-            UserAgent = Truncate(command.UserAgent, 512)
+            CreatedByIp = ipAddress,
+            UserAgent = Truncate(userAgent, 512)
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -102,14 +115,14 @@ public sealed class IdentityService(
         }
     }
 
-    public async Task<CurrentUserDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<CurrentUserResult> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByIdAsync(userId.ToString())
             ?? throw new AuthenticationException();
         return await ToCurrentUserAsync(user);
     }
 
-    public async Task<PagedResult<UserListItemDto>> ListAsync(
+    public async Task<PagedResult<UserResult>> ListAsync(
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -119,21 +132,24 @@ public sealed class IdentityService(
         var query = userManager.Users.AsNoTracking().OrderBy(user => user.DisplayName);
         var total = await query.CountAsync(cancellationToken);
         var users = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
-        var items = new List<UserListItemDto>(users.Count);
+        var items = new List<UserResult>(users.Count);
 
         foreach (var user in users)
         {
             items.Add(await ToListItemAsync(user));
         }
 
-        return new PagedResult<UserListItemDto>(items, page, pageSize, total);
+        return new PagedResult<UserResult>(items, page, pageSize, total);
     }
 
-    public async Task<UserListItemDto> CreateAsync(
-        CreateUserCommand command,
+    public async Task<UserResult> CreateAsync(
+        string email,
+        string displayName,
+        string role,
+        string initialPassword,
         CancellationToken cancellationToken)
     {
-        if (!AppRoles.All.Contains(command.Role))
+        if (!AppRoles.All.Contains(role))
         {
             throw new RequestValidationException("Invalid role.", new Dictionary<string, string[]>
             {
@@ -144,36 +160,38 @@ public sealed class IdentityService(
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
-            UserName = command.Email.Trim(),
-            Email = command.Email.Trim(),
-            DisplayName = command.DisplayName.Trim(),
+            UserName = email.Trim(),
+            Email = email.Trim(),
+            DisplayName = displayName.Trim(),
             IsActive = true,
             MustChangePassword = true,
             EmailConfirmed = true
         };
 
-        var creation = await userManager.CreateAsync(user, command.InitialPassword);
+        var creation = await userManager.CreateAsync(user, initialPassword);
         EnsureIdentitySucceeded(creation);
-        await EnsureRoleAsync(command.Role);
-        EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, command.Role));
+        await EnsureRoleAsync(role);
+        EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, role));
         return await ToListItemAsync(user);
     }
 
-    public async Task<UserListItemDto> UpdateStatusAsync(
-        UpdateUserStatusCommand command,
+    public async Task<UserResult> UpdateStatusAsync(
+        Guid userId,
+        bool isActive,
+        Guid actingUserId,
         CancellationToken cancellationToken)
     {
-        if (command.UserId == command.ActingUserId && !command.IsActive)
+        if (userId == actingUserId && !isActive)
         {
             throw new ConflictException("You cannot disable your own account.");
         }
 
-        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+        var user = await userManager.FindByIdAsync(userId.ToString())
             ?? throw new NotFoundException("User was not found.");
-        user.IsActive = command.IsActive;
+        user.IsActive = isActive;
         EnsureIdentitySucceeded(await userManager.UpdateAsync(user));
 
-        if (!command.IsActive)
+        if (!isActive)
         {
             var now = DateTimeOffset.UtcNow;
             var sessions = await dbContext.RefreshSessions
@@ -190,35 +208,7 @@ public sealed class IdentityService(
     public async Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken) =>
         await userManager.Users.AnyAsync(user => user.Id == userId && user.IsActive, cancellationToken);
 
-    public async Task BootstrapAsync(
-        string email,
-        string displayName,
-        string password,
-        CancellationToken cancellationToken)
-    {
-        await EnsureRoleAsync(AppRoles.Admin);
-        await EnsureRoleAsync(AppRoles.Sales);
-
-        if (await userManager.GetUsersInRoleAsync(AppRoles.Admin) is { Count: > 0 })
-        {
-            throw new ConflictException("An Admin account already exists; bootstrap was not performed.");
-        }
-
-        var user = new ApplicationUser
-        {
-            Id = Guid.NewGuid(),
-            UserName = email.Trim(),
-            Email = email.Trim(),
-            DisplayName = displayName.Trim(),
-            IsActive = true,
-            MustChangePassword = false,
-            EmailConfirmed = true
-        };
-        EnsureIdentitySucceeded(await userManager.CreateAsync(user, password));
-        EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, AppRoles.Admin));
-    }
-
-    private async Task<AuthTokenDto> IssueSessionAsync(
+    private async Task<AuthResult> IssueSessionAsync(
         ApplicationUser user,
         Guid familyId,
         string? ipAddress,
@@ -241,7 +231,7 @@ public sealed class IdentityService(
         return await CreateAuthResultAsync(user, refreshToken, now, cancellationToken);
     }
 
-    private async Task<AuthTokenDto> CreateAuthResultAsync(
+    private async Task<AuthResult> CreateAuthResultAsync(
         ApplicationUser user,
         string refreshToken,
         DateTimeOffset now,
@@ -269,7 +259,7 @@ public sealed class IdentityService(
                 SecurityAlgorithms.HmacSha256)
         };
         var token = new JsonWebTokenHandler().CreateToken(descriptor);
-        var currentUser = new CurrentUserDto(
+        var currentUser = new CurrentUserResult(
             user.Id,
             user.DisplayName,
             user.Email!,
@@ -277,7 +267,7 @@ public sealed class IdentityService(
             user.IsActive,
             user.MustChangePassword);
 
-        return new AuthTokenDto(
+        return new AuthResult(
             token,
             "Bearer",
             (int)(expires - now).TotalSeconds,
@@ -296,11 +286,11 @@ public sealed class IdentityService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<CurrentUserDto> ToCurrentUserAsync(ApplicationUser user) =>
+    private async Task<CurrentUserResult> ToCurrentUserAsync(ApplicationUser user) =>
         new(user.Id, user.DisplayName, user.Email!, (await userManager.GetRolesAsync(user)).ToArray(),
             user.IsActive, user.MustChangePassword);
 
-    private async Task<UserListItemDto> ToListItemAsync(ApplicationUser user) =>
+    private async Task<UserResult> ToListItemAsync(ApplicationUser user) =>
         new(user.Id, user.DisplayName, user.Email!, (await userManager.GetRolesAsync(user)).ToArray(),
             user.IsActive, user.MustChangePassword, user.CreatedAt);
 

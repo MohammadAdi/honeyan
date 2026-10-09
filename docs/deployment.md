@@ -22,3 +22,5 @@ dotnet publish backend/src/HoneyAn.Api/HoneyAn.Api.csproj -c Release -o publish
 ```
 
 Run migrations as an explicit deployment step; the application never applies them automatically. Database provisioning, secret management, TLS policy, telemetry, and the production hosting provider remain deployment decisions. Health currently reports process liveness rather than database readiness.
+
+Run `--seed` as an explicit one-off release job after migration. Running it repeatedly is safe: roles are created only when absent, an existing Admin is not duplicated, and existing passwords are never overwritten. Inject `HONEYAN_SEED_ADMIN_EMAIL`, `HONEYAN_SEED_ADMIN_DISPLAY_NAME`, and `HONEYAN_SEED_ADMIN_PASSWORD` from the platform secret store only when an initial Admin must be provisioned.

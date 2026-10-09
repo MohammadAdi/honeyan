@@ -29,16 +29,22 @@ Apply the versioned Identity schema migration after creating `honeyandb`:
 dotnet ef database update --project backend/src/HoneyAn.Infrastructure --startup-project backend/src/HoneyAn.Api
 ```
 
-Provision the first Admin exactly once. The command refuses to run after an Admin exists:
+Seed the required `Admin` and `Sales` roles:
 
 ```powershell
-$env:HONEYAN_BOOTSTRAP_EMAIL = "admin@example.invalid"
-$env:HONEYAN_BOOTSTRAP_DISPLAY_NAME = "Initial Admin"
-$env:HONEYAN_BOOTSTRAP_PASSWORD = "use-a-strong-secret"
-dotnet run --project backend/src/HoneyAn.Api -- --bootstrap-admin
+dotnet run --project backend/src/HoneyAn.Api -- --seed
 ```
 
-Never commit bootstrap values or production connection/JWT secrets.
+To provision the initial Admin in the same idempotent seed operation, supply all three values. Existing users are never given a new password by the seeder:
+
+```powershell
+$env:HONEYAN_SEED_ADMIN_EMAIL = "admin@example.invalid"
+$env:HONEYAN_SEED_ADMIN_DISPLAY_NAME = "Initial Admin"
+$env:HONEYAN_SEED_ADMIN_PASSWORD = "use-a-strong-secret"
+dotnet run --project backend/src/HoneyAn.Api -- --seed
+```
+
+The three Admin variables must be supplied together. Never commit seed values or production connection/JWT secrets.
 
 ## Frontend
 

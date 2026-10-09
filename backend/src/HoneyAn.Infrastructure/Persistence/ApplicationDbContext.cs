@@ -27,7 +27,6 @@ public sealed class ApplicationDbContext(
             entity.Property(session => session.UserAgent).HasMaxLength(512);
         });
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         ApplySnakeCaseNames(modelBuilder);
     }
 
